@@ -1,0 +1,26 @@
+services:
+  db: # MariaDBのコンテナ
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass # ルートユーザーのパスワード
+      MARIADB_DATABASE: wordpress # データベース名
+      MARIADB_USER: wordpress # データベースのユーザー名
+      MARIADB_PASSWORD: wordpress # データベースのパスワード
+    volumes:
+      - db-data:/var/lib/mysql
+  wordpress:
+    image: wordpress:php8.2-apache
+    depends_on:
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db # 接続先(MariaDB)のコンテナ名
+      WORDPRESS_DB_NAME: wordpress # 接続先データベース（MariaDB）のデータベース名
+      WORDPRESS_DB_USER: wordpress # 接続先データベース（MariaDB）のユーザー名
+      WORDPRESS_DB_PASSWORD: wordpress # 接続先データベース(MariaDB)のパスワード
+    ports:
+      - "8080:80"
+    volumes:
+      - wordpress-data:/var/www/html
+volumes:
+  db-data:
+  wordpress-data:
