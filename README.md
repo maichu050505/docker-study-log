@@ -1,5 +1,4 @@
-Docker 学習ノート
-- このリポジトリは、『Docker＆仮想サーバー完全入門』で学んだ内容＋自分で調べたことを、
+このリポジトリは、『Docker＆仮想サーバー完全入門』で学んだ内容＋自分で調べたことを、
 将来自分で見返したり、初学者が参照できるようにまとめたものです。
 
 # Docker の構造（アーキテクチャ）
@@ -396,9 +395,11 @@ docker compose up -d でコンテナを作成すると、wordpress02 フォル�
 - compose.yml を書いて up するだけで、ユーザー定義 bridge ネットワークが自動で作られる
 - link オプションは古い機能で非推奨。
 
-# すぐに使えるDocker設定ファイル（MariaDB + phpMyAdmin）
-- phpMyAdminとは、MariaDBを操作できるGUIツール。
+# すぐに使える Docker 設定ファイル（MariaDB + phpMyAdmin）
+
+- phpMyAdmin とは、MariaDB を操作できる GUI ツール。
 - chap5/phpmyadmin/compose.yaml を作成
+
 ```yaml
 services:
   db: # MariaDBのコンテナ
@@ -411,20 +412,131 @@ services:
     volumes:
       - db-data:/var/lib/mysql
   phpmyadmin:
-   image: phpmyadmin:5.2.3
-   depends_on:
-    - db
-   environment:
-    PMA_HOST: db # MariaDBのコンテナ名を設定
-    PMA_USER: testuser
-    PMA_PASSWORD: testpass
-   ports:
-    - "8080:80"
-   volumes:
-    - phpmyadmin-data:/sessions
+    image: phpmyadmin:5.2.3
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db # MariaDBのコンテナ名を設定
+      PMA_USER: testuser
+      PMA_PASSWORD: testpass
+    ports:
+      - "8080:80"
+    volumes:
+      - phpmyadmin-data:/sessions
 volumes:
- db-data:
- phpmyadmin-data:
+  db-data:
+  phpmyadmin-data:
 ```
-- Docker Desktopを起動した状態で、phpmyadminフォルダで、docker compose up -d を実行
-- http://localhost:8080/ を開くと、phpMyAdminが見れる。
+
+- Docker Desktop を起動した状態で、phpmyadmin フォルダで、docker compose up -d を実行
+- http://localhost:8080/ を開くと、phpMyAdmin が見れる。
+
+# Dify
+
+- Dify とは、「LLM（ChatGPT みたいなやつ）を使ったアプリをノーコード／ローコードで作るためのプラットフォーム」
+
+## Dify 立ち上げ手順
+
+1. Docker Desktop を起動
+2. 好きなディレクトリに移動し、git clone https://github.com/langgenius/dify.git
+3. Dify 内にある Docker ディレクトリに移動: cd dify/docker
+4. .env を作成。docker ディレクトリに .env.example があるので、それをコピー：cp .env.example .env
+   この .env には、API の URL・DB 設定・Redis・VectorDB など山ほど環境変数が入ってるけど、
+   とりあえずローカルで動かすだけならデフォルトのままで OK。
+5. Dify のコンテナ群を起動: docker compose up -d
+6. http://localhost にアクセス。管理者アカウントの設定の画面が出る。
+7. メールアドレスとユーザー名、パスワードを入力して管理者アカウントを設定
+
+## Dify 環境を止める方法
+
+cd ~/dify/docker
+docker compose down
+
+- 起動中のコンテナたち（web / api / redis / postgres / weaviate / nginx …）
+  → 全部止まって削除される
+- ネットワーク（docker_default とか）
+  → 一緒に削除
+- でも、
+  - イメージ（ダウンロード済みの dify 関連コンテナの元データ）
+  - ボリューム（DB の中身など）
+    はそのまま残るので、
+    次回またやりたくなったら：
+    cd ~/dify/docker
+    docker compose up -d
+    で、同じ環境をすぐ復活できる。
+
+## Dify を完全削除するコマンド一覧
+
+1. コンテナ停止&削除
+   cd ~/dify/docker
+   docker compose down
+2. Dify が使っているボリュームだけ確認
+   docker volume ls
+3. Dify 関連のみ削除
+   docker volume rm docker_db_postgres_data docker_redis_data docker_weaviate_data docker_plugin_data docker_web_cache docker_worker_cache
+   ※ volume 名は docker volume ls を見て確定させる
+4. Dify が使っているイメージを確認
+   docker images
+5. langgenius/〜 postgres:15-alpine redis:6-alpine weaviate nginx:latest など Dify に必要だったものだけ選んで削除
+   docker rmi langgenius/dify-api:1.10.1 \
+    langgenius/dify-web:1.10.1 \
+    langgenius/dify-sandbox:0.2.12 \
+    langgenius/dify-plugin-daemon:0.4.1-local \
+    postgres:15-alpine \
+    redis:6-alpine \
+    semitechnologies/weaviate:1.27.0 \
+    nginx:latest
+6. ネットワーク削除
+   docker network ls
+   この結果を、下のコマンドで実行。
+   docker network rm docker_default docker_ssrf_proxy_network
+7. Dify のフォルダも削除する場合（Mac 上のソースも消すなら）
+   rm -rf ~/dify
+
+## エラー: meta.db input/output error で何もできなくなったとき
+
+`docker compose up` や `docker pull` を実行したときに、以下のようなエラーが出た。
+
+> Error response from daemon: write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: input/output error
+
+これは Docker Desktop が内部で使っているデータベース（meta.db）が壊れている状態。
+
+CLI から `docker image rm` や `docker pull` をしても、すべて同じエラーになるので、
+Docker Desktop 側でリセットが必要。
+
+### 対処手順
+
+1. メニューバーの 🐳 アイコン → **Troubleshoot**
+2. まず **「Clean / Purge data」** を実行  
+   → すべてのイメージ / コンテナ / ボリュームが削除される（Mac のプロジェクトファイルは消えない）
+3. それでも直らなければ **「Reset to factory defaults」**（工場出荷状態）を実行
+4. リセット後に `docker pull hello-world`, `docker pull nginx:latest` などを試して、正常にイメージ取得できることを確認
+5. 必要なコンテナは `docker compose up -d` などで再作成する
+
+## エラー: Mac ストレージ不足
+
+> failed to extract layer ... input/output error
+> write /var/lib/desktop-containerd/...: input/output error
+> rpc error: code = Unknown desc = blob ...
+
+### 原因
+
+Mac 本体のストレージが枯渇し、Docker の `containerd` がイメージを展開できなかったため。
+最低 30GB 以上の空き推奨
+
+### 実際に行った対処手順
+
+1. Docker を停止: docker compose down
+2. Docker のデータを初期化（イメージ削除ができなかったため）
+   Docker Desktop
+   → Settings（設定）
+   → Troubleshoot
+   → Purge data を実行
+3. ストレージ容量確認: df -h
+4. 不要データを削除して容量を確保
+
+※ 今回は以下を削除して約 60GB 空きを作った
+
+- iPhone バックアップ（~/Library/Application Support/MobileSync/Backup）
+- 写真ライブラリを外付け SSD に移動
+- ~/Library/Caches の削除
