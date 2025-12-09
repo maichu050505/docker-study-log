@@ -540,3 +540,121 @@ Mac 本体のストレージが枯渇し、Docker の `containerd` がイメー�
 - iPhone バックアップ（~/Library/Application Support/MobileSync/Backup）
 - 写真ライブラリを外付け SSD に移動
 - ~/Library/Caches の削除
+
+# WordPress サイトのテスト用コンテナを作成する
+
+## 0. ゴールイメージ
+
+ローカルの URL: http://localhost:8080
+
+コンテナ構成:
+db : MariaDB（DB はボリューム）
+wordpress: Apache + PHP 8.3 + WordPress（コードはバインドマウント）
+phpmyadmin: DB 確認用（おまけ）
+本番の DB とファイルをコピーした「テスト環境」でファイルを編集する。
+
+## 1. ローカルの作業ディレクトリを作成
+
+例）wp-official-docker/html
+
+## 2. 本番から「ファイル」と「DB」を 1 回だけ持ってくる
+
+(1) WordPress ファイル一式（wp-admin, wp-includes, wp-content, wp-config.php, .htaccess など）を、
+ローカルの作業ディレクトリ（wp-official-docker/html）内にダウンロード。
+※ uploads は空 or 今年のだけ or 最新月だけで十分
+(2) DB のダンプ
+サーバの phpMyAdmin などから、
+WordPress 用 DB（wp_options とかが入ってるやつ）を .sql でエクスポート
+
+## 3. docker-compose.yml を作成
+
+用意した作業ディレクトリ内に docker-compose.yml を作成。
+WordPress コード → ./html を /var/www/html に バインドマウント
+DB → db_data という Docker ボリューム
+
+## 4. wp-config.php をローカル用に書き換え
+
+```php
+/** 本番から持ってきた設定をコメントアウト or 上書き */
+define( 'DB_NAME', 'wp_official' );
+define( 'DB_USER', 'wp_user' );
+define( 'DB_PASSWORD', 'wp_pass' );
+define( 'DB_HOST', 'db' ); // ← localhost ではなく "db"
+define( 'DB_CHARSET', 'utf8' );
+```
+
+ローカル用の URL も固定
+/_ 編集が必要なのはここまでです ! WordPress でブログをお楽しみください。 _/ の直前に。
+
+```php
+define( 'WP_HOME',    'http://localhost:8080' );
+define( 'WP_SITEURL', 'http://localhost:8080' );
+
+define( 'FORCE_SSL_ADMIN', false );
+
+/* 編集が必要なのはここまでです ! WordPress でブログをお楽しみください。 */
+```
+
+## 5. .htaccess をローカル用に編集（必要であれば）
+
+- Really Simple Security Redirect の Rewrite 系はコメントアウト
+
+```
+# BEGIN Really Simple Security Redirect
+
+# <IfModule mod_rewrite.c>
+# RewriteEngine on
+# RewriteCond %{HTTP_USER_AGENT} !lscache_runner [NC]
+# RewriteCond %{HTTP:X-Forwarded-Proto} !https
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# </IfModule>
+
+# END Really Simple Security Redirect
+```
+
+- WordPress の設定は、下記のように差し替え。
+
+```
+# BEGIN WordPress
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+</IfModule>
+
+# END WordPress
+```
+
+※ 本番には絶対にアップロードしない。
+
+## 6. docker compose up -d
+
+Docker Desktop を起動し、作業ディレクトリに移動して、docker compose up -d を実行。
+http://localhost:8080 で WordPress
+http://localhost:8081 で phpMyAdmin にアクセスできるようになります。
+もしくは、
+http://127.0.0.1:8080 で WordPress
+http://127.0.0.1:8081 で phpMyAdmin にアクセスできるようになります。
+
+もし、http://127.0.0.1:8080 にする場合は、wp-confing.php も、下記のように設定。
+
+```php
+// ▼ローカル環境用URL（必ず http にする）
+define( 'WP_HOME',    'http://127.0.0.1:8080' );
+define( 'WP_SITEURL', 'http://127.0.0.1:8080' );
+```
+
+## 7. phpMyAdmin で DB をインポートする
+
+作業ディレクトリに、エクスポートしてきた sql ファイルを移し、dump.sql という名前にする。
+ターミナルで、「docker compose exec -T db sh -c 'mysql -u root -proot wp_official' < dump.sql」を実行。
+http://127.0.0.1:8081 の phpMyAdmin でインポートできたか確認。
+http://127.0.0.1:8080 で、WP のインストール画面ではなく、サイトが表示されるか確認。
+http://127.0.0.1:8080/wp-admin/ で、ログイン画面に入れる。WP のログイン情報は本番と同じ。
+
+## 8. Docker を停止する。
+
+docker compose down
