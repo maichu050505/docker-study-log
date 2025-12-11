@@ -576,6 +576,7 @@ DB → db_data という Docker ボリューム
 
 ```php
 /** 本番から持ってきた設定をコメントアウト or 上書き */
+例）docker-compose.ymlの内容と合わせる
 define( 'DB_NAME', 'wp_official' );
 define( 'DB_USER', 'wp_user' );
 define( 'DB_PASSWORD', 'wp_pass' );
@@ -651,6 +652,7 @@ define( 'WP_SITEURL', 'http://127.0.0.1:8080' );
 
 作業ディレクトリに、エクスポートしてきた sql ファイルを移し、dump.sql という名前にする。
 ターミナルで、「docker compose exec -T db sh -c 'mysql -u root -proot wp_official' < dump.sql」を実行。
+※ここでの wp_official は、wp-config.php に書いた、DB 名。define( 'DB_NAME', 'wp_official' );
 http://127.0.0.1:8081 の phpMyAdmin でインポートできたか確認。
 http://127.0.0.1:8080 で、WP のインストール画面ではなく、サイトが表示されるか確認。
 http://127.0.0.1:8080/wp-admin/ で、ログイン画面に入れる。WP のログイン情報は本番と同じ。
