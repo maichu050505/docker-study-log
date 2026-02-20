@@ -652,10 +652,11 @@ define( 'WP_SITEURL', 'http://127.0.0.1:8080' );
 
 作業ディレクトリに、エクスポートしてきた sql ファイルを移し、dump.sql という名前にする。
 ターミナルで、「docker compose exec -T db sh -c 'mysql -u root -proot wp_official' < dump.sql」を実行。
-※ここでの wp_official は、wp-config.php に書いた、DB 名。define( 'DB_NAME', 'wp_official' );
-http://127.0.0.1:8081 の phpMyAdmin でインポートできたか確認。
-http://127.0.0.1:8080 で、WP のインストール画面ではなく、サイトが表示されるか確認。
-http://127.0.0.1:8080/wp-admin/ で、ログイン画面に入れる。WP のログイン情報は本番と同じ。
+- ※ここでの wp_official は、wp-config.php に書いた、DB 名。define( 'DB_NAME', 'wp_official' );
+- 「-p」の後に、docker-compose.ymlのdbサービスのenvironmentに書いてある「MYSQL_ROOT_PASSWORD」のパスワードを入れる。
+- http://127.0.0.1:8081 の phpMyAdmin でインポートできたか確認。
+- http://127.0.0.1:8080 で、WP のインストール画面ではなく、サイトが表示されるか確認。
+- http://127.0.0.1:8080/wp-admin/ で、ログイン画面に入れる。WP のログイン情報は本番と同じ。
 
 ## 8. Docker を停止する。
 
